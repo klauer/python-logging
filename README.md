@@ -1,10 +1,8 @@
-Python Logging Notes
-====================
+## Python Logging Notes
 
 Python logging is confusing.
 
-Levels
-------
+### Levels
 
 ```
 CRITICAL = 50
@@ -28,29 +26,28 @@ So:
    is nearing overflowing at WARNING (30) and a flood is imminent at CRITICAL
    (50).
 
-``isEnabledFor``
-----------------
+### ``isEnabledFor``
 
 ``isEnabledFor`` performs this check. 
 
 ``isEnabledFor`` works like the following:
+
 1. if ``logger.disabled``, return immediately
-2. Otherwise, 
-    a. Check ``manager.disable >= level`` (usually not the case)
-    b. Check ``level >= logger.getEffectiveLevel()``
+2. Otherwise,
+    1. Check ``manager.disable >= level`` (usually not the case)
+    2. Check ``level >= logger.getEffectiveLevel()``
 
 3. ``logger.getEffectiveLevel()``
-    a. Find the first logger ``[self, self.parent, self.parent.parent, ...]``
+    1. Find the first logger ``[self, self.parent, self.parent.parent, ...]``
        that has a ``level`` set.
-    b. Return the level found in (a) or fall back to ``NOTSET``.
+    2. Return the level found in (a) or fall back to ``NOTSET``.
 
  For performance reasons, the per-level ``isEnabledFor`` information is
  **cached** in a dictionary ``logger._cache[level]``.
 
 This cache is locked using a **module-level** ``threading.RLock``.
 
-Level conversion
-----------------
+### Level conversion
 
 ```python
 >>> logging.getLevelName(10)
@@ -112,8 +109,7 @@ Consistent numerical values:
 'DEBUG'
 ```
 
-Manager
-=======
+## Manager
 
 Never hear of the ``logging.Manager``? Me either.
 
@@ -128,8 +124,7 @@ It contains the following information:
 5. ``loggerClass`` the default ``Logger`` class to create on ``getLogger``.
 6. ``logRecordFactory`` the factory used to create records
 
-Global disable logging
-----------------------
+### Global disable logging
 
 While the manager takes care of this, the public API is
 
@@ -138,8 +133,7 @@ While the manager takes care of this, the public API is
 This also forces a cache clearing, so that loggers have to find their
 effective levels again.
 
-getLogger
----------
+### getLogger
 
 ``logging.getLogger`` is a shortcut for ``Logger.manager.getLogger``!
 
@@ -150,10 +144,9 @@ Some things to note:
 1. You can override the default Logger class by doing ``logging.``
 2. Custom ``Logger`` classes **must** be subclasses of ``Logger``.
 3. ``manager.setLoggerClass`` takes precedence over ``logging.setLoggerClass``
-    a. They are two separate state variables!
+    1. They are two separate state variables!
 
-Placeholders?
--------------
+### Placeholders?
 
 Internal API for managing parent/child logger relationships. Quoting the
 source code:
@@ -168,11 +161,9 @@ source code:
 > placeholder to now point to the logger.
 
 
-Records
-=======
+## Records
 
-extras
-------
+### extras
 
 ``LogRecord`` ignores unknown kwargs, so where do ``extra``s get added as
 attributes?
@@ -180,8 +171,7 @@ attributes?
 Extras get patched in by way of ``record.__dict__[key] = value``.
 
 
-Adapters
-========
+## Adapters
 
 ``LoggerAdapter`` is a simple way to add contextual information onto a logger.
 The adapter itself, however, is not 100% API-compatible with the ``Logger``
@@ -191,16 +181,14 @@ It should be used when you have multiple contexts (objects, etc.) utilizing the
 same logger instance, but you want the generated logger records to be easily
 differentiable.
 
-Filters
-=======
+## Filters
 
 Only the following classes implement the ``Filterer`` interface:
 
 * Handler
 * Logger
 
-Interface of a filter
----------------------
+### Interface of a filter
 
 Filters should either be callable or have a callable attribute ``.filter()``.
 Either should take **one** positional argument: the ``LogRecord``.
@@ -218,30 +206,25 @@ def filter(record):
 simple example).
 
 
-Application of filters
-----------------------
+### Application of filters
 
 Filters are applied uniformly for either handlers or loggers:
 
 ``should_handle = all(filter() for filter in logger.filters)``
 ``should_handler_0_emit_record = all(filter() for filter in logger.handlers[0].filters)``
 
-Handler filter
---------------
+### Handler filter
 
 A **filter applied to a handler** takes in a record.
 If **any** filter returns ``False``, the final message will not be emitted.
 
-Log Messages
-============
+## Log Messages
 
-Hierarchy
-----------
+### Hierarchy
 
 The parent logger of ``logging.getLogger("a.b")`` is ``logging.getLogger("a")``.
 
-Propagation
------------
+### Propagation
 
 Basic rule is that if:
 
@@ -252,45 +235,42 @@ logger.propagate = False
 That the log message will not propagate to `logger.parent`.
 There's more to it than this, though.
 
-Effective Level
----------------
+### Effective Level
 
 Unset log levels are configured as ``logging.NOTSET = 0``
 
-Flow [Logger version]
----------------------
+### Flow [Logger version]
 
 1. ``logger.debug("Message")``
-    a. Ensure ``logger.isEnabledFor(DEBUG)``
+    1. Ensure ``logger.isEnabledFor(DEBUG)``
 3. ``logger._log()`` 
-    a. Create a ``LogRecord`` by way of ``logger.makeRecord()``
-    b. This is where exception information and stack information is determined.
+    1. Create a ``LogRecord`` by way of ``logger.makeRecord()``
+    2. This is where exception information and stack information is determined.
 4. ``logger.handle(record)``
-    a. Stop if ``logger.disabled``
-    b. Stop if ``not logger.filter(record)``
+    1. Stop if ``logger.disabled``
+    2. Stop if ``not logger.filter(record)``
 5. ``logger.callHandlers(record)``
-    a. For each handler in ``logger.handlers``
-        i. If the **handler** level is ``<=`` the ``record.levelno``, pass the
+    1. For each handler in ``logger.handlers``
+        1. If the **handler** level is ``<=`` the ``record.levelno``, pass the
             message to the handler: ``handler.handle(record)``
-    b. Repeat (a) for each parent/ancestor logger **if** ``.propagate``
-    c. If **zero** handlers were found in this step, use the "last resort" logger.
+    2. Repeat (a) for each parent/ancestor logger **if** ``.propagate``
+    3. If **zero** handlers were found in this step, use the "last resort" logger.
        The log level number requirement still applies for the last resort logger.
 
 On the handler end,
 
 1. For each ``handler.handle()`` in step 5
-    a. Stop if ``not handler.filter(record)``
+    1. Stop if ``not handler.filter(record)``
 2. For each ``handler.handle()`` that passed step 6
-    a. Acquire ``threading.RLock`` dedicated to the handler.
-    b. ``handler.emit(record)``
-    c. Release the lock.
+    1. Acquire ``threading.RLock`` dedicated to the handler.
+    2. ``handler.emit(record)``
+    3. Release the lock.
 3. For each ``handler.emit(record)``
-    a. Call ``handler.format(record)`` to get the message
-    b. Send message out to target (this is custom depending on the handler
+    1. Call ``handler.format(record)`` to get the message
+    2. Send message out to target (this is custom depending on the handler
        implementation itself)
 
-Flow [Adapter version]
-----------------------
+### Flow [Adapter version]
 
 The adapter is a thin wrapper around its public ``logger`` attribute.
 
@@ -302,17 +282,16 @@ adapter = logging.LoggerAdapter(logging.getLogger("logger"), extra=extra)
 ```
 
 1. ``adapter.debug("Test")``
-    a. ``adapter.log(DEBUG, "Test")``
+    1. ``adapter.log(DEBUG, "Test")``
 2. ``adapter.log(level, msg, *args, **kwargs)``
-    a. Ensure ``adapter.logger.isEnabledFor(DEBUG)``
-    b. Call ``adapter.process(DEBUG, "Test")``
+    1. Ensure ``adapter.logger.isEnabledFor(DEBUG)``
+    2. Call ``adapter.process(DEBUG, "Test")``
 3. ``adapter.process(DEBUG, "Test", *args, **kwargs)``
-    a. Attach ``kwargs["extra"] = self.extra``
+    1. Attach ``kwargs["extra"] = self.extra``
 4. Pass on the message and args to the original logger instance.
-    a. ``self.logger.log(level, msg, *args, **kwargs)``
+    1. ``self.logger.log(level, msg, *args, **kwargs)``
 
-Last Resort
------------
+### Last Resort
 
 If no other handlers are found in a log message chain, a "last resort" logger
 is used.  
@@ -321,8 +300,7 @@ This is by default configured at the ``WARNING`` level.
 
 The log level number requirement still applies for the last resort logger.
 
-Creating a log record
----------------------
+### Creating a log record
 
 ``logger.makeRecord`` takes care of creating a record.
 
@@ -345,8 +323,7 @@ _logRecordFactory(
 )
 ```
 
-Shutdown
-========
+## Shutdown
 
 There's an ``atexit`` hook which will look through every handler ever defined
 (well, weakrefs of handlers, stashed in ``logging._handlerList``) and call the
@@ -354,13 +331,12 @@ following:
 
 1. If the weakref is invalid, stop
 2. Call the following, ignoring OSError/ValueError:
-    a. ``handler.acquire()``
-    b. ``handler.flush()``
-    c. ``handler.close()``
+    1. ``handler.acquire()``
+    2. ``handler.flush()``
+    3. ``handler.close()``
 4. And finally, ``handler.release()``
 
-Root Logger
-===========
+## Root Logger
 
 Helper functions for using the root logger are there, but you really shouldn't
 be using them (in my opinion).
@@ -370,26 +346,31 @@ setup may still see the messages due to a check for handlers on the root logger
 in these helpers.
 
 ``logging.info(...)`` -> ``basicConfig`` + ``root.info(...)``
+
 ``logging.debug(...)`` -> ``basicConfig`` + ``root.debug(...)``
+
 ``logging.warning(...)`` -> ``basicConfig`` + ``root.warning(...)``
+
 ``logging.error(...)`` -> ``basicConfig`` + ``root.error(...)``
+
 ``logging.exception(...)`` -> ``basicConfig`` + ``root.exception(...)``
+
 ``logging.critical(...)`` -> ``basicConfig`` + ``root.critical(...)``
 
-Capturing warnings
-==================
+## Capturing warnings
 
 Warnings can be captured in the logging system by way of:
 
-```logging.captureWarnings(True)``
+```python
+logging.captureWarnings(True)
+```
 
 This (surprisingly, to me) monkey-patches ``warnings.showwarning`` to
 redirect it to ``logging._showwarning``.  This formats the warning
 and routes it to ``logging.getLogger("py.warnings").warning()``.
 
 
-basicConfig
-===========
+## basicConfig
 
 This is used pretty much everywhere for simple configuration of logging.
 
@@ -420,7 +401,7 @@ Also, you can
 5. Pass in already-created handlers (``handlers = [...]``)
 
 
-Formatting
-==========
+## Formatting
 
 TODO
+
