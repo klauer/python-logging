@@ -226,7 +226,7 @@ If **any** filter returns ``False``, the final message will not be emitted.
 
 The parent logger of ``logging.getLogger("a.b")`` is ``logging.getLogger("a")``.
 
-### Propagation
+### Propagation (during callHandlers)
 
 Basic rule is that if:
 
@@ -236,6 +236,11 @@ logger.propagate = False
 
 That the log message will not propagate to `logger.parent`.
 There's more to it than this, though.
+
+A ``False``-returning filter in ``logger.filters`` or setting ``logger.disabled`` 
+will stop records from reaching ``callHandlers`` and thus avoid propagation entirely.
+
+Handler-level filters **have no effect** on propagation.
 
 ### Effective Level
 
