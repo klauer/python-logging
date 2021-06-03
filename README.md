@@ -210,8 +210,10 @@ simple example).
 
 Filters are applied uniformly for either handlers or loggers:
 
-``should_handle = all(filter() for filter in logger.filters)``
-``should_handler_0_emit_record = all(filter() for filter in logger.handlers[0].filters)``
+```python
+should_handle = all(filter() for filter in logger.filters)
+should_handler_0_emit_record = all(filter() for filter in logger.handlers[0].filters)
+```
 
 ### Handler filter
 
@@ -243,13 +245,13 @@ Unset log levels are configured as ``logging.NOTSET = 0``
 
 1. ``logger.debug("Message")``
     1. Ensure ``logger.isEnabledFor(DEBUG)``
-3. ``logger._log()`` 
+2. ``logger._log()`` 
     1. Create a ``LogRecord`` by way of ``logger.makeRecord()``
     2. This is where exception information and stack information is determined.
-4. ``logger.handle(record)``
+3. ``logger.handle(record)``
     1. Stop if ``logger.disabled``
     2. Stop if ``not logger.filter(record)``
-5. ``logger.callHandlers(record)``
+4. ``logger.callHandlers(record)``
     1. For each handler in ``logger.handlers``
         1. If the **handler** level is ``<=`` the ``record.levelno``, pass the
             message to the handler: ``handler.handle(record)``
@@ -257,18 +259,19 @@ Unset log levels are configured as ``logging.NOTSET = 0``
     3. If **zero** handlers were found in this step, use the "last resort" logger.
        The log level number requirement still applies for the last resort logger.
 
-On the handler end,
+For each handler that passed step (4)(a)(1):
 
-1. For each ``handler.handle()`` in step 5
-    1. Stop if ``not handler.filter(record)``
-2. For each ``handler.handle()`` that passed step 6
-    1. Acquire ``threading.RLock`` dedicated to the handler.
+1. Stop if ``not handler.filter(record)`` 
+    1. All filters must return ``True``
+2. Emit the record by way of:
+    1. Acquire ``threading.RLock`` dedicated to the handler (``handler.lock``).
     2. ``handler.emit(record)``
     3. Release the lock.
-3. For each ``handler.emit(record)``
-    1. Call ``handler.format(record)`` to get the message
-    2. Send message out to target (this is custom depending on the handler
-       implementation itself)
+
+For each emitted record above in ``handler.emit(record)``:
+1. Call ``handler.format(record)`` to get the message
+2. Send message out to target (this is custom depending on the handler
+   implementation itself)
 
 ### Flow [Adapter version]
 
@@ -305,8 +308,8 @@ The log level number requirement still applies for the last resort logger.
 ``logger.makeRecord`` takes care of creating a record.
 
 Under the hood, log records are created through a factory
-```logging.getLogRecordFactory()``, which can be set with
-```logging.setLogRecordFactory(factory)``.
+``logging.getLogRecordFactory()``, which can be set with
+``logging.setLogRecordFactory(factory)``.
 
 This factory (as of the time of writing) should have arguments:
 ```python
